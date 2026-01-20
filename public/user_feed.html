@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Alertify – Citizen Report Feed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Fonts + Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    :root{--accent:#ff1b3d;--bg:#050007;--muted:#a3a3a3;--card:rgba(0,0,0,0.55);--border:rgba(255,255,255,0.10)}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(circle at top,#160010 0,#050007 42%);color:#fff;font-family:Inter,system-ui;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--border);backdrop-filter:blur(14px);background:rgba(0,0,0,0.55)}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:42px;height:42px;border-radius:12px;background:radial-gradient(circle,var(--accent),#7a001a);display:grid;place-items:center;box-shadow:0 0 18px rgba(255,27,61,0.55)}
+    .logo i{color:#050007}
+    .brand h1{margin:0;font-family:Orbitron,system-ui;letter-spacing:0.16em;text-transform:uppercase;font-size:0.95rem}
+    .brand h1 span{color:var(--accent)}
+    .who{color:var(--muted);font-size:0.85rem}
+    .who strong{color:var(--accent)}
+    .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .btn{border:1px solid rgba(255,255,255,0.25);background:transparent;color:#fff;border-radius:999px;padding:10px 14px;font-size:0.75rem;letter-spacing:0.16em;text-transform:uppercase;cursor:pointer;text-decoration:none;display:inline-flex;gap:8px;align-items:center}
+    .btn.primary{background:var(--accent);border:none;color:#050007;font-weight:800;box-shadow:0 0 20px rgba(255,27,61,0.7)}
+
+    main{max-width:980px;margin:0 auto;padding:22px 16px 44px}
+    .grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,0.8fr);gap:16px;align-items:start}
+    @media (max-width: 940px){.grid{grid-template-columns:1fr}}
+
+    .card{border:1px solid var(--border);background:var(--card);backdrop-filter:blur(14px);border-radius:18px;box-shadow:0 0 28px rgba(255,27,61,0.10)}
+    .composer{padding:16px}
+    .composer .title{font-family:Orbitron,system-ui;letter-spacing:0.14em;text-transform:uppercase;font-size:0.85rem;margin:0 0 10px}
+    .composer textarea{width:100%;min-height:110px;resize:vertical;border-radius:14px;border:1px solid rgba(255,255,255,0.18);background:rgba(0,0,0,0.45);color:#fff;padding:12px 12px;font-size:0.95rem;line-height:1.55}
+    .composer textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,27,61,0.25)}
+    .composer .row{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap}
+    .mini{color:var(--muted);font-size:0.82rem}
+    .error{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,27,61,0.35);background:rgba(255,27,61,0.10);color:#ffd1d8;font-size:0.9rem}
+
+    .feed{padding:10px}
+    .feed-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px 12px}
+    .feed-head .title{font-family:Orbitron,system-ui;letter-spacing:0.14em;text-transform:uppercase;font-size:0.85rem;margin:0}
+    .search{display:flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,0.18);border-radius:999px;padding:9px 12px;background:rgba(0,0,0,0.35)}
+    .search input{border:none;outline:none;background:transparent;color:#fff;width:220px;max-width:55vw}
+    .post{padding:14px 14px 12px;margin:10px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.35)}
+    .post-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .author{font-weight:700}
+    .time{color:var(--muted);font-size:0.78rem}
+    .content{margin:10px 0 12px;line-height:1.6;color:#f2f2f2;white-space:pre-wrap}
+    .meta{display:flex;flex-wrap:wrap;gap:8px}
+    .pill{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.14);color:#fff}
+    .pill.good{border-color:rgba(55,210,153,0.55);background:rgba(55,210,153,0.10)}
+    .pill.warn{border-color:rgba(255,176,32,0.65);background:rgba(255,176,32,0.10)}
+    .pill.bad{border-color:rgba(255,23,68,0.65);background:rgba(255,23,68,0.12)}
+    .pill.muted{border-color:rgba(255,255,255,0.14);background:rgba(255,255,255,0.06);color:var(--muted)}
+
+    .post-actions{display:flex;gap:12px;margin-top:12px;color:var(--muted);font-size:0.82rem}
+    .post-actions span{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.10)}
+
+    .side{padding:16px}
+    .side .title{font-family:Orbitron,system-ui;letter-spacing:0.14em;text-transform:uppercase;font-size:0.85rem;margin:0 0 12px}
+    .side .box{padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,0.10);background:rgba(0,0,0,0.35);color:#d9d9d9;line-height:1.55;font-size:0.9rem}
+    .side ul{margin:10px 0 0;padding-left:18px}
+    .side li{margin:6px 0}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo"><i class="fa-solid fa-shield-heart"></i></div>
+      <div>
+        <h1>Alert<span>ify</span> Citizen Feed</h1>
+        <div class="who">Logged in as: <strong id="me-name">...</strong></div>
+      </div>
+    </div>
+    <div class="actions">
+      <a class="btn" href="/">Home</a>
+      <a class="btn" href="/dashboard.html" title="LGU dashboard (requires admin)">LGU Dashboard</a>
+      <button class="btn primary" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <section class="card composer">
+        <h2 class="title"><i class="fa-solid fa-pen"></i> Create a Report (Facebook-style)</h2>
+        <textarea id="post-text" placeholder="Type your report... Include barangay + what you need (rescue, evacuation, medical)."></textarea>
+        <div class="row">
+          <div class="mini">Post updates will appear in the community feed. Disaster classification is shown in the LGU dashboard.</div>
+          <button class="btn primary" id="post-btn"><i class="fa-solid fa-paper-plane"></i> Post</button>
+        </div>
+        <div id="post-error" class="error"></div>
+      </section>
+
+      <aside class="card side">
+        <h2 class="title"><i class="fa-solid fa-circle-info"></i> Posting Tips</h2>
+        <div class="box">
+          To help responders prioritize you faster, include:
+          <ul>
+            <li><b>Location</b> (Barangay/landmark in Lipa City)</li>
+            <li><b>Need</b> (rescue, evacuation, medical)</li>
+            <li><b>People</b> (how many, and condition)</li>
+            <li><b>Hazard</b> (flood, fire, typhoon, etc.)</li>
+          </ul>
+          <div style="margin-top:10px;color:#a3a3a3;font-size:0.85rem;">Non-disaster posts are automatically filtered and will not appear on the LGU dashboard.</div>
+        </div>
+      </aside>
+
+      <section class="card feed" style="grid-column:1 / -1;">
+        <div class="feed-head">
+          <h2 class="title"><i class="fa-solid fa-newspaper"></i> Live Feed</h2>
+          <div class="search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="search" type="text" placeholder="Search posts..." />
+          </div>
+        </div>
+        <div id="feed"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="assets/js/user_feed.js"></script>
+</body>
+</html>

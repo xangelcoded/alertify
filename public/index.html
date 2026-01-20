@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Alertify – Smart Disaster Intelligence</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Fonts + Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root {
+      --accent: #ff1b3d;
+      --bg: #050007;
+      --text-main: #ffffff;
+      --text-muted: #a3a3a3;
+      --border-subtle: rgba(255,255,255,0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #160010 0, #050007 40%);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+      overflow-x: hidden;
+    }
+
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(255,27,61,0.22), transparent 55%),
+        radial-gradient(circle at 85% 10%, rgba(255,27,61,0.18), transparent 55%);
+      z-index: -1;
+    }
+
+    /* HEADER */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 40px;
+      border-bottom: 1px solid var(--border-subtle);
+      backdrop-filter: blur(18px);
+      background: rgba(0,0,0,0.55);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand img {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+    }
+
+    .brand-name {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .brand-title {
+      font-family: "Orbitron", system-ui;
+      font-size: 1.25rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .brand-title span {
+      color: var(--accent);
+    }
+
+    .brand-tagline {
+      font-size: 0.8rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    nav {
+      display: flex;
+      gap: 24px;
+      font-size: 0.85rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    nav a {
+      text-decoration: none;
+      color: var(--text-muted);
+      padding-bottom: 4px;
+      border-bottom: 2px solid transparent;
+    }
+
+    nav a.active {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.8rem;
+    }
+
+    .status-pill {
+      padding: 6px 18px;
+      border-radius: 999px;
+      background: radial-gradient(circle, var(--accent), #7a001a);
+      box-shadow: 0 0 18px rgba(255,27,61,0.9);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .location-label {
+      color: var(--text-muted);
+    }
+
+    .location-label strong {
+      color: var(--accent);
+    }
+
+    /* MAIN */
+    main {
+      padding: 56px 44px 40px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 40px;
+      align-items: center;
+    }
+
+    @media (max-width: 960px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,27,61,0.6);
+      color: var(--accent);
+      font-size: 0.75rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .hero-kicker i {
+      font-size: 0.8rem;
+    }
+
+    .hero-title {
+      font-family: "Orbitron", system-ui;
+      font-size: 2.6rem;
+      line-height: 1.15;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    .hero-title span {
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      margin-top: 16px;
+      max-width: 560px;
+      color: var(--text-muted);
+      font-size: 0.98rem;
+      line-height: 1.6;
+    }
+
+    .hero-ctas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 26px;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 11px 22px;
+      font-size: 0.8rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #050007;
+      border: none;
+      font-weight: 600;
+      box-shadow: 0 0 20px rgba(255,27,61,0.88);
+    }
+
+    .btn-secondary {
+      border: 1px solid rgba(255,255,255,0.4);
+      color: var(--text-main);
+      background: transparent;
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 22px;
+    }
+
+    .hero-tag {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.22);
+      padding: 5px 12px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hero-tag i {
+      color: var(--accent);
+      font-size: 0.8rem;
+    }
+
+    /* MAP PANEL */
+    .map-panel {
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: radial-gradient(circle at top, rgba(255,27,61,0.18), #050007 60%);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.9);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .map-header {
+      padding: 12px 16px 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .map-header-title {
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.75rem;
+    }
+
+    .map-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(0,0,0,0.75);
+      border: 1px solid rgba(255,27,61,0.7);
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .map-badge i { font-size: 0.8rem; }
+
+    #map {
+      width: 100%;
+      height: 340px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* FEATURES SECTION */
+    .features {
+      margin-top: 60px;
+    }
+
+    .section-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .section-title {
+      margin: 8px 0 6px;
+      font-size: 1.4rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .section-sub {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      max-width: 620px;
+    }
+
+    .feature-grid {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(5,5,12,0.9);
+      padding: 14px 14px 16px;
+    }
+
+    .feature-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,27,61,0.1);
+      border: 1px solid rgba(255,27,61,0.7);
+      margin-bottom: 10px;
+    }
+
+    .feature-icon i {
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+
+    .feature-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .feature-text {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* DEVELOPERS */
+    .dev-section {
+      margin-top: 56px;
+      padding: 18px 18px 20px;
+      border-radius: 18px;
+      border: 1px solid var(--border-subtle);
+      background: radial-gradient(circle at top, rgba(255,27,61,0.16), #050007 55%);
+    }
+
+    .dev-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .dev-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .dev-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 10px 0 0;
+      font-size: 0.95rem;
+    }
+
+    .dev-list li::before {
+      content: "▸";
+      color: var(--accent);
+      margin-right: 6px;
+    }
+
+    .dev-meta {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+    }
+
+    .dev-meta strong {
+      color: var(--text-main);
+    }
+
+    /* FOOTER */
+    footer {
+      margin-top: 36px;
+      padding-bottom: 24px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 14px;
+    }
+  </style>
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<header>
+  <div class="brand">
+    <!-- Replace src with your logo PNG if needed -->
+    <img src="assets/img/alertify-seal.png" alt="Alertify Logo">
+    <div class="brand-name">
+      <div class="brand-title">ALERTI<span>FY</span></div>
+      <div class="brand-tagline">SMART DISASTER INTELLIGENCE • LGU COMMAND VIEW</div>
+    </div>
+  </div>
+
+  <nav>
+    <a href="#" class="active">Overview</a>
+    <a href="#features">Features</a>
+    <a href="#team">Developers</a>
+  </nav>
+
+  <div class="header-right">
+    <div class="location-label"><strong>Lipa City</strong> • Philippines</div>
+    <div class="status-pill">SYSTEM ONLINE</div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div>
+      <div class="hero-kicker">
+        <i class="fa-solid fa-bolt"></i> NU LIPA • PROTOTYPE • ALERTIFY
+      </div>
+      <h1 class="hero-title">
+        Real-time disaster<br>
+        intelligence for<br>
+        <span>Lipa LGU decision-makers.</span>
+      </h1>
+      <p class="hero-sub">
+        Alertify monitors disaster-related social media activity, classifies urgency using AI,
+        detects locations, and displays incidents on a live tactical dashboard so responders
+        can act on the most critical situations first.
+      </p>
+
+      <div class="hero-ctas">
+        <a href="login.html" class="btn-primary">
+          <i class="fa-solid fa-right-to-bracket"></i> LGU COMMAND LOGIN
+        </a>
+            <a class="btn-outline" href="user_login.html"><i class="fa-solid fa-user"></i> Citizen Post Portal</a>
+        <a href="dashboard.html" class="btn-secondary">
+          <i class="fa-solid fa-display"></i> VIEW DEMO DASHBOARD
+        </a>
+      </div>
+
+      <div class="hero-tags">
+        <div class="hero-tag">
+          <i class="fa-solid fa-brain"></i> AI urgency detection
+        </div>
+        <div class="hero-tag">
+          <i class="fa-solid fa-map-location-dot"></i> Map-based incident view
+        </div>
+        <div class="hero-tag">
+          <i class="fa-solid fa-language"></i> EN • TL • Taglish
+        </div>
+        <div class="hero-tag">
+          <i class="fa-solid fa-shield-halved"></i> Designed for LGU war rooms
+        </div>
+      </div>
+    </div>
+
+    <!-- MAP PANEL -->
+    <div class="map-panel">
+      <div class="map-header">
+        <div class="map-header-title">INCIDENT MAP • LIPA CITY</div>
+        <div class="map-badge">
+          <i class="fa-solid fa-location-crosshairs"></i> DISASTER INCIDENTS
+        </div>
+      </div>
+      <div id="map"></div   
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="section-label">System overview</div>
+    <h2 class="section-title">Built to understand crisis signals at scale.</h2>
+    <p class="section-sub">
+      Alertify ingests public disaster-related posts, applies multilingual NLP, and surfaces
+      high-risk events on a single operational view for Lipa City’s emergency teams.
+    </p>
+
+    <div class="feature-grid">
+      <article class="feature-card">
+        <div class="feature-icon">
+          <i class="fa-solid fa-language"></i>
+        </div>
+        <div class="feature-title">Multilingual AI engine</div>
+        <div class="feature-text">
+          Uses a multilingual BERT model tuned for disaster-related content, understanding
+          English, Tagalog, and Taglish posts common in local social media.
+        </div>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <i class="fa-solid fa-ranking-star"></i>
+        </div>
+        <div class="feature-title">Urgency & hazard ranking</div>
+        <div class="feature-text">
+          Scores and ranks each report based on urgency and disaster type so operators
+          can see critical alerts for flooded roads, trapped residents, or fires.
+        </div>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <i class="fa-solid fa-map"></i>
+        </div>
+        <div class="feature-title">Map + notifier dashboard</div>
+        <div class="feature-text">
+          Combines a geospatial incident map with a live alert feed, optimized for LGU
+          command centers and multi-screen operations.
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- DEVELOPERS -->
+  <section class="dev-section" id="team">
+    <div class="section-label">Developed by</div>
+    <h2 class="section-title">Alertify research & development team.</h2>
+    <div class="dev-grid">
+      <div>
+        <p class="section-sub">
+          Alertify is an academic prototype built to explore how AI and social media
+          data can support smarter disaster response for local governments.
+        </p>
+        <ul class="dev-list">
+          <li>Aaron James Hernandez</li>
+          <li>Vince Mitchel Tagle</li>
+          <li>Kenji Josef Yema</li>
+          <li>Tristan Job Ulita</li>
+        </ul>
+      </div>
+      <div class="dev-meta">
+        <p>
+          <i class="fa-solid fa-graduation-cap"></i>
+          &nbsp;BS Computer Science Students<br/>
+          <strong>National University – Lipa</strong>
+        </p>
+        <p>
+          This work demonstrates a proposed LGU decision-support system, showing how
+          real-time social media analytics can augment existing emergency protocols.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span><i class="fa-solid fa-triangle-exclamation"></i> Prototype only — not for sole life-critical decision-making.</span>
+    <span>Alertify • Smart Disaster Intelligence for Lipa LGU</span>
+  </footer>
+</main>
+
+<script>
+  // MAP: center on Lipa, add multiple glowing pins
+  const map = L.map('map', { zoomControl: false }).setView([13.941, 121.163], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  const alertPoints = [
+    [13.938, 121.165],
+    [13.944, 121.158],
+    [13.947, 121.171],
+    [13.934, 121.170],
+    [13.952, 121.160],
+    [13.937, 121.154],
+    [13.946, 121.176],
+    [13.930, 121.163],
+    [13.955, 121.150],
+    [13.942, 121.182]
+  ];
+
+  alertPoints.forEach(coords => {
+    L.circleMarker(coords, {
+      radius: 9,
+      color: "#ff1b3d",
+      weight: 2,
+      fillColor: "#ff1b3d",
+      fillOpacity: 0.45
+    }).addTo(map);
+  });
+</script>
+</body>
+</html>

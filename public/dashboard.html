@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Alertify Disaster Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Cyberpunk Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <!-- Leaflet MarkerCluster (better UX) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+  <style>
+    :root {
+      --bg: #020006;
+      --bg-panel: #050512;
+      --accent: #ff1744;
+      --accent-soft: #ff4b6e;
+      --accent-muted: #fecaca;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --border-subtle: rgba(148, 163, 184, 0.4);
+      --danger: #ff1744;
+      --warning: #ffb020;
+      --success: #37d299;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top, rgba(255, 23, 68, 0.32), transparent 55%),
+        radial-gradient(circle at bottom left, rgba(56, 189, 248, 0.18), transparent 55%),
+        #020006;
+      color: var(--text-main);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      transition: box-shadow 0.25s ease, background 0.25s ease;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* subtle scanlines overlay */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 100% 3px;
+      opacity: 0.2;
+      z-index: -1;
+    }
+
+    body.mode-heightened {
+      background:
+        radial-gradient(circle at top, rgba(255, 159, 10, 0.26), transparent 60%),
+        radial-gradient(circle at bottom left, rgba(56, 189, 248, 0.18), transparent 55%),
+        #020006;
+    }
+    body.mode-red {
+      background:
+        radial-gradient(circle at top, rgba(255, 23, 68, 0.6), transparent 60%),
+        radial-gradient(circle at bottom left, rgba(248, 113, 113, 0.32), transparent 55%),
+        #020006;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* TOP BAR */
+    .top-bar {
+      padding: 0.8rem 1.8rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(90deg, rgba(5, 5, 16, 0.98), rgba(40, 0, 20, 0.98));
+      border-bottom: 1px solid var(--border-subtle);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.9);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    body.mode-red .top-bar {
+      box-shadow: 0 0 40px rgba(255, 23, 68, 0.9);
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      background: radial-gradient(circle at 20% 20%, #ff7a8c, #5a0013);
+      box-shadow: 0 0 24px rgba(255, 23, 68, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Orbitron", system-ui;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .brand-title {
+      font-family: "Orbitron", system-ui;
+      font-size: 1.15rem;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .brand-title span {
+      color: var(--accent);
+    }
+
+    .brand-tagline {
+      margin-top: 0.1rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 23, 68, 0.8);
+      background: radial-gradient(circle at left, rgba(255, 23, 68, 0.4), rgba(0, 0, 0, 0.95));
+      color: var(--accent-muted);
+      box-shadow: 0 0 20px rgba(255, 23, 68, 0.9);
+    }
+
+    .status-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 22px rgba(255, 23, 68, 1);
+      animation: pulse 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50% { transform: scale(1.5); opacity: 0.4; }
+    }
+
+    .top-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .top-meta strong {
+      color: var(--accent-soft);
+    }
+
+    .operator-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.12rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-align: right;
+    }
+
+    .operator-name {
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .mode-select {
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.7);
+      color: var(--accent-muted);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      outline: none;
+    }
+
+    /* HAZARD BANNER */
+    .hazard-banner {
+      padding: 0.55rem 1.8rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #fecaca;
+      background: linear-gradient(90deg, rgba(127, 29, 29, 0.92), rgba(76, 29, 149, 0.9));
+      border-bottom: 1px solid rgba(248, 113, 113, 0.6);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hazard-banner::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.04) 0,
+        rgba(255,255,255,0.04) 2px,
+        transparent 2px,
+        transparent 4px
+      );
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .hazard-main {
+      font-family: "Orbitron", system-ui;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hazard-meta {
+      text-align: right;
+      color: #fecaca;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 900px) {
+      .hazard-banner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .hazard-meta {
+        text-align: left;
+      }
+    }
+
+    /* MAIN LAYOUT */
+    .content {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: 0;
+      padding: 1rem 1.5rem 1.2rem;
+      min-height: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .content {
+        grid-template-columns: 1fr;
+        row-gap: 1.1rem;
+      }
+    }
+
+    /* KPI ROW */
+    .kpi-row {
+      grid-column: 1 / -1;
+      margin-bottom: 0.9rem;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.8rem;
+    }
+
+    @media (max-width: 1100px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 700px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .kpi-card {
+      border-radius: 16px;
+      padding: 0.8rem 1rem;
+      background: radial-gradient(circle at top left, rgba(255, 23, 68, 0.3), rgba(15, 23, 42, 0.96));
+      border: 1px solid rgba(248, 113, 113, 0.7);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(248, 113, 113, 0.25), transparent 55%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .kpi-inner {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .kpi-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #fecaca;
+    }
+
+    .kpi-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .kpi-sub {
+      font-size: 0.8rem;
+      color: #fecaca;
+      opacity: 0.85;
+    }
+
+    .kpi-chip {
+      margin-top: auto;
+      align-self: flex-start;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      border-radius: 999px;
+      padding: 0.15rem 0.55rem;
+      border: 1px solid rgba(254, 226, 226, 0.7);
+      color: #fee2e2;
+      background: rgba(24, 24, 27, 0.9);
+    }
+
+    /* LEFT: MAP PANEL */
+    .map-panel {
+      border-right: 1px solid var(--border-subtle);
+      padding-right: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      min-height: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .map-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+        padding-right: 0;
+        padding-bottom: 1rem;
+      }
+    }
+
+    .map-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+    }
+
+    .map-header-left {
+      max-width: 420px;
+    }
+
+    .map-title {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .map-sub {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+    }
+
+    .map-sub span {
+      color: var(--accent-soft);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      justify-content: flex-end;
+      font-size: 0.8rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.18rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: rgba(8, 8, 18, 0.95);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      box-shadow: 0 0 14px rgba(0, 0, 0, 0.9);
+    }
+
+    .dot-critical { background: var(--danger); box-shadow: 0 0 18px rgba(255, 23, 68, 1); }
+    .dot-high { background: var(--warning); box-shadow: 0 0 18px rgba(255, 176, 32, 1); }
+    .dot-monitor { background: var(--success); box-shadow: 0 0 18px rgba(55, 210, 153, 1); }
+    .dot-flood { background: #1d9bf0; }
+    .dot-fire { background: #ff7b00; }
+    .dot-quake { background: #b026ff; }
+    .dot-landslide { background: #7ed957; }
+
+    .map-filters {
+      margin-top: 0.4rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+
+    .filter-label {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      margin-right: 0.4rem;
+    }
+
+    .filter-pill {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding: 0.2rem 0.7rem;
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text-muted);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.7rem;
+      transition: all 0.12s ease;
+    }
+
+    .filter-pill.active {
+      border-color: var(--accent-soft);
+      color: var(--accent-soft);
+      box-shadow: 0 0 16px rgba(255, 23, 68, 0.8);
+      background: radial-gradient(circle at left, rgba(255, 23, 68, 0.4), rgba(15, 23, 42, 0.98));
+    }
+
+    .map-wrapper {
+      margin-top: 0.4rem;
+      border-radius: 18px;
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 0 0 1px rgba(255, 23, 68, 0.22),
+        0 26px 60px rgba(0, 0, 0, 0.95);
+      overflow: hidden;
+      background: #020617;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 500px;
+    }
+
+    .map-overlay-label {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      z-index: 5;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      padding: 0.16rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      color: var(--text-muted);
+    }
+
+    /* RIGHT: ALERT PANEL */
+    .alert-panel {
+      padding-left: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      min-height: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .alert-panel {
+        padding-left: 0;
+      }
+    }
+
+    .ticker {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(248, 113, 113, 0.9);
+      background: radial-gradient(circle at left, rgba(255, 23, 68, 0.5), rgba(0,0,0,0.98));
+      padding: 0.45rem 0.9rem;
+      font-size: 0.85rem;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.95);
+      overflow: hidden;
+    }
+
+    .ticker-label {
+      font-family: "Orbitron", system-ui;
+      font-size: 0.8rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-shrink: 0;
+    }
+
+    .ticker-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 22px rgba(255, 23, 68, 1);
+      animation: pulse 1.2s infinite;
+    }
+
+    .ticker-text {
+      color: #fee2e2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      animation: ticker-move 10s linear infinite;
+    }
+
+    @keyframes ticker-move {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-40%); }
+    }
+
+    .notifier-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-top: 0.7rem;
+    }
+
+    .notifier-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .notifier-title {
+      font-family: "Orbitron", system-ui;
+      font-size: 1.05rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--accent-soft);
+    }
+
+    .notifier-sub {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+    }
+
+    .notifier-badge {
+      font-size: 0.78rem;
+      border-radius: 999px;
+      padding: 0.3rem 0.9rem;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+    }
+
+    /* Alerts toolbar + mini chart + resources */
+    .alerts-toolbar {
+      margin-top: 0.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .toolbar-btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding: 0.2rem 0.7rem;
+      background: rgba(10, 10, 24, 0.98);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .toolbar-btn:hover {
+      border-color: var(--accent-soft);
+      color: var(--accent-soft);
+      box-shadow: 0 0 12px rgba(255, 23, 68, 0.8);
+    }
+
+    .toolbar-btn.active {
+      border-color: var(--accent-soft);
+      color: var(--accent-soft);
+    }
+
+    .toolbar-search {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding: 0.2rem 0.7rem;
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text-main);
+      font-size: 0.75rem;
+      min-width: 160px;
+    }
+
+    .toolbar-search::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* mini chart + resources */
+    .upper-right-row {
+      margin-top: 0.7rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.1fr);
+      gap: 0.6rem;
+    }
+
+    @media (max-width: 1100px) {
+      .upper-right-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .mini-chart {
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(10, 10, 24, 0.96);
+      padding: 0.6rem 0.7rem;
+      font-size: 0.78rem;
+    }
+
+    .mini-chart-header {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .mini-chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.25rem;
+      height: 60px;
+      margin-bottom: 0.25rem;
+    }
+
+    .mini-bar {
+      flex: 1;
+      border-radius: 999px 999px 0 0;
+      background: linear-gradient(to top, rgba(255, 23, 68, 0.85), rgba(248, 113, 113, 0.4));
+      box-shadow: 0 0 12px rgba(248, 113, 113, 0.7);
+    }
+
+    .mini-chart-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.66rem;
+      color: var(--text-muted);
+    }
+
+    .resources-panel {
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(10, 10, 24, 0.96);
+      padding: 0.6rem 0.7rem;
+      font-size: 0.78rem;
+    }
+
+    .resources-title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .resources-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.4rem;
+    }
+
+    .resource-item {
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      background: rgba(15, 23, 42, 0.9);
+      padding: 0.3rem 0.45rem;
+      font-size: 0.72rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .resource-label {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text-muted);
+    }
+
+    .resource-value {
+      font-size: 0.85rem;
+    }
+
+    /* Alerts list */
+    .alerts-scroll {
+      margin-top: 0.7rem;
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .alerts-scroll::-webkit-scrollbar {
+      width: 7px;
+    }
+
+    .alerts-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.7);
+      border-radius: 999px;
+    }
+
+    .alert-card {
+      border-radius: 16px;
+      padding: 0.9rem 1.0rem;
+      background: linear-gradient(135deg, rgba(15, 15, 30, 0.98), rgba(52, 0, 22, 0.98));
+      border: 1px solid rgba(248, 113, 113, 0.7);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.95);
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .alert-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(252, 165, 165, 0.18), transparent 60%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .alert-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .alert-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.98);
+    }
+
+    .alert-card.selected {
+      border-color: var(--accent-soft);
+      box-shadow: 0 0 22px rgba(255, 23, 68, 0.9);
+      background: radial-gradient(circle at top left, rgba(255, 23, 68, 0.35), rgba(52, 0, 22, 0.98));
+    }
+
+    .alert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.4rem;
+    }
+
+    .alert-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #fee2e2;
+    }
+
+    .alert-type {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    .alert-pill {
+      font-size: 0.82rem;
+      border-radius: 999px;
+      padding: 0.25rem 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .pill-critical {
+      background: rgba(75, 0, 14, 0.98);
+      border: 1px solid rgba(255, 23, 68, 0.95);
+      color: var(--danger);
+      box-shadow: 0 0 18px rgba(255, 23, 68, 0.95);
+    }
+    .pill-high {
+      background: rgba(75, 40, 0, 0.98);
+      border: 1px solid rgba(255, 176, 32, 0.95);
+      color: var(--warning);
+      box-shadow: 0 0 18px rgba(255, 176, 32, 0.9);
+    }
+    .pill-moderate {
+      background: rgba(8, 48, 32, 0.98);
+      border: 1px solid rgba(55, 210, 153, 0.95);
+      color: var(--success);
+      box-shadow: 0 0 18px rgba(55, 210, 153, 0.9);
+    }
+
+    .alert-body {
+      font-size: 0.86rem;
+      color: #fef2f2;
+      margin-bottom: 0.55rem;
+      line-height: 1.45;
+    }
+
+    .alert-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+    }
+
+    .meta-label {
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.7rem;
+      color: #6b7280;
+    }
+
+    .alert-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: #fecaca;
+    }
+
+    .alert-footer .hotline {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.7rem;
+    }
+
+    .btn-ghost {
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(8, 8, 18, 0.97);
+      padding: 0.28rem 0.9rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .btn-ghost:hover {
+      border-color: rgba(255, 23, 68, 0.9);
+      color: var(--accent-soft);
+      box-shadow: 0 0 14px rgba(255, 23, 68, 0.85);
+    }
+
+    .btn-ghost.acknowledged {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    /* Incident detail panel */
+    .incident-detail {
+      margin-top: 0.85rem;
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(10, 10, 24, 0.98);
+      padding: 0.7rem 0.8rem;
+      font-size: 0.8rem;
+    }
+
+    .incident-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.4rem;
+    }
+
+    .incident-code {
+      font-family: "Orbitron", system-ui;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.8rem;
+      color: var(--accent-soft);
+    }
+
+    .incident-chip {
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .incident-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.4rem;
+      margin-top: 0.2rem;
+    }
+
+    @media (max-width: 900px) {
+      .incident-detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .incident-field-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+    }
+
+    .incident-field-value {
+      font-size: 0.8rem;
+    }
+
+    .incident-actions {
+      margin-top: 0.5rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.4rem;
+    }
+
+    .incident-btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.9);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      padding: 0.22rem 0.8rem;
+      cursor: pointer;
+    }
+
+    .incident-btn.primary {
+      border-color: var(--accent-soft);
+      color: var(--accent-soft);
+    }
+
+    /* Footer */
+    .footer {
+      padding: 0.7rem 1.8rem 1rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(148, 163, 184, 0.35);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+  </style>
+</head>
+<body class="mode-normal">
+  <div class="app-shell">
+    <!-- TOP BAR -->
+    <header class="top-bar">
+      <div class="brand-block">
+        <div class="brand-logo">A</div>
+        <div>
+          <div class="brand-title">ALERTI<span>FY</span></div>
+          <div class="brand-tagline">LGU DISASTER COMMAND VIEW</div>
+        </div>
+      </div>
+      <div class="top-right">
+        <div class="status-pill">
+          <div class="status-dot"></div>
+          LIVE ENGINE
+        </div>
+        <div class="operator-block">
+          <div class="operator-name">Operator: CDRRMO Console 01</div>
+          <select id="alert-mode-select" class="mode-select">
+            <option value="NORMAL" selected>NORMAL</option>
+            <option value="HEIGHTENED">HEIGHTENED</option>
+            <option value="RED_ALERT">RED ALERT</option>
+          </select>
+        </div>
+        <div class="top-meta">
+          <span><strong>Lipa City</strong> • Philippines</span>
+          <span id="clock-text">SYSTEM TIME: --:--:--</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- HAZARD BANNER -->
+    <div class="hazard-banner">
+      <div class="hazard-main">PAGASA ADVISORY • TYPHOON SIGNAL #2 OVER BATANGAS</div>
+      <div class="hazard-meta">
+        Rainfall: MODERATE TO HEAVY • Taal Alert Level 2 • System: HEIGHTENED MONITORING
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="content">
+      <!-- KPI STRIP -->
+      <section class="kpi-row">
+        <div class="kpi-grid">
+          <article class="kpi-card">
+            <div class="kpi-inner">
+              <div class="kpi-label">Active alerts</div>
+              <div class="kpi-value" id="kpi-total-alerts">--</div>
+              <div class="kpi-sub">
+                <span id="kpi-critical-count">0</span> Critical •
+                <span id="kpi-high-count">0</span> High •
+                <span id="kpi-monitor-count">0</span> Monitoring
+              </div>
+              <div class="kpi-chip">AI-ranked incidents</div>
+            </div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-inner">
+              <div class="kpi-label">Estimated affected residents</div>
+              <div class="kpi-value" id="kpi-est-affected">--</div>
+              <div class="kpi-sub">Based on severity tags and incident types</div>
+              <div class="kpi-chip">Simulation only</div>
+            </div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-inner">
+              <div class="kpi-label">Barangays with reports</div>
+              <div class="kpi-value" id="kpi-barangay-count">--</div>
+              <div class="kpi-sub">Out of 72 barangays in Lipa City</div>
+              <div class="kpi-chip">Geo-tag coverage</div>
+            </div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-inner">
+              <div class="kpi-label">Model status</div>
+              <div class="kpi-value" id="kpi-model-status">ONLINE</div>
+              <div class="kpi-sub" id="kpi-model-updated">Last model refresh: --</div>
+              <div class="kpi-chip">Alertify NLP model</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- LEFT: MAP -->
+      <section class="map-panel">
+        <div class="map-header">
+          <div class="map-header-left">
+            <div class="map-title">Incident map • Lipa</div>
+            <div class="map-sub">
+              Visual overview of <span>disaster-related social media reports</span>. Each marker represents a classified Alertify post.
+            </div>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><span class="legend-dot dot-critical"></span>Critical</div>
+            <div class="legend-item"><span class="legend-dot dot-high"></span>High</div>
+            <div class="legend-item"><span class="legend-dot dot-monitor"></span>Monitoring</div>
+            <div class="legend-item"><span class="legend-dot dot-flood"></span>Flood</div>
+            <div class="legend-item"><span class="legend-dot dot-fire"></span>Fire</div>
+            <div class="legend-item"><span class="legend-dot dot-quake"></span>Earthquake</div>
+            <div class="legend-item"><span class="legend-dot dot-landslide"></span>Landslide</div>
+          </div>
+        </div>
+
+        <!-- FILTERS -->
+        <div class="map-filters">
+          <div class="filter-group">
+            <span class="filter-label">Urgency</span>
+            <button class="filter-pill active" data-urgency-filter="ALL">All</button>
+            <button class="filter-pill" data-urgency-filter="CRITICAL">Critical</button>
+            <button class="filter-pill" data-urgency-filter="HIGH">High</button>
+            <button class="filter-pill" data-urgency-filter="MODERATE">Monitoring</button>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">Type</span>
+            <button class="filter-pill active" data-type-filter="ALL">All</button>
+            <button class="filter-pill" data-type-filter="FLOOD">Flood</button>
+            <button class="filter-pill" data-type-filter="FIRE">Fire</button>
+            <button class="filter-pill" data-type-filter="LANDSLIDE">Landslide</button>
+            <button class="filter-pill" data-type-filter="POWER">Power</button>
+            <button class="filter-pill" data-type-filter="WIND">Typhoon</button>
+            <button class="filter-pill" data-type-filter="QUAKE">Earthquake</button>
+          </div>
+        </div>
+
+        <div class="map-wrapper">
+          <div class="map-overlay-label">LIPA CITY • INCIDENT HEAT</div>
+          <div id="map"></div>
+        </div>
+      </section>
+
+      <!-- RIGHT: ALERTS -->
+      <section class="alert-panel">
+        <div class="ticker">
+          <div class="ticker-label">
+            <span class="ticker-dot"></span>
+            LIVE ALERT FEED
+          </div>
+          <div class="ticker-text" id="ticker-text">
+            Initializing Alertify demo feed…
+          </div>
+        </div>
+
+        <div class="notifier-header">
+          <div class="notifier-left">
+            <div class="notifier-title">Notifier</div>
+            <div class="notifier-sub">AI-ranked urgent reports simulated for LGU operations.</div>
+          </div>
+          <div class="notifier-badge" id="alert-count-badge">-- ACTIVE ALERTS</div>
+        </div>
+
+        <!-- ALERTS TOOLBAR -->
+        <div class="alerts-toolbar">
+          <div class="toolbar-buttons">
+            <button class="toolbar-btn" id="btn-ack-all">Acknowledge all</button>
+            <button class="toolbar-btn" id="btn-group-urgency">Focus: Critical</button>
+            <button class="toolbar-btn" id="btn-group-barangay">Focus: Barangay clusters</button>
+          </div>
+          <input
+            type="text"
+            id="alert-search"
+            class="toolbar-search"
+            placeholder="Search alerts / barangays"
+          />
+        </div>
+
+        <!-- MINI CHART & RESOURCES -->
+        <div class="upper-right-row">
+          <div class="mini-chart">
+            <div class="mini-chart-header">Incident volume (last 24h)</div>
+            <div class="mini-chart-bars" id="mini-chart-bars"></div>
+            <div class="mini-chart-labels">
+              <span>00:00</span>
+              <span>06:00</span>
+              <span>12:00</span>
+              <span>18:00</span>
+              <span>Now</span>
+            </div>
+          </div>
+          <div class="resources-panel">
+            <div class="resources-title">Response assets</div>
+            <div class="resources-grid">
+              <div class="resource-item">
+                <div class="resource-label">Ambulances</div>
+                <div class="resource-value">7 / 10 deployed</div>
+              </div>
+              <div class="resource-item">
+                <div class="resource-label">Rescue boats</div>
+                <div class="resource-value">3 / 5 active</div>
+              </div>
+              <div class="resource-item">
+                <div class="resource-label">Field teams</div>
+                <div class="resource-value">8 teams in field</div>
+              </div>
+              <div class="resource-item">
+                <div class="resource-label">Power outages</div>
+                <div class="resource-value">4 barangays affected</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCROLLING ALERT LIST -->
+        <div class="alerts-scroll" id="alerts-scroll">
+          <!-- ALERT CARDS – IDs must match JS data -->
+          <!-- First 10 same as core scenarios -->
+          <article class="alert-card" data-alert-id="AL-2025-001">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">AMBER ALERT</div>
+                  <div class="alert-type">FLOODING IN THE AREA</div>
+                </div>
+                <div class="alert-pill pill-critical">CRITICAL</div>
+              </div>
+              <div class="alert-body">
+                Severe flooding reported along Sabang riverside. Residents on rooftops with children and elderly requesting immediate rescue.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Sabang, Lipa City</span>
+                <span><span class="meta-label">Time</span> Just now</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">CALL 911 • LIPA CDRRMO (043) 123-4567</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-002">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">LANDSLIDE RISK</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Continuous heavy rains; soil erosion visible near hillside homes in Brgy. Pinagtongulan. Residents advised to prepare go-bags and stay on alert.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Pinagtongulan, Lipa City</span>
+                <span><span class="meta-label">Time</span> 3 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">COORDINATE WITH BARANGAY CAPTAIN & FIELD TEAM BRAVO.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-003">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">FIRE IN THE AREA</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Electrical fire at commercial building near JP Laurel Highway reported contained. Monitoring smoke and nearby residences for additional assistance.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> JP Laurel Highway, Lipa City</span>
+                <span><span class="meta-label">Time</span> 7 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">BFP LIPA ON-SITE • AWAIT AIR QUALITY UPDATE.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-004">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">STRONG WINDS / TYPHOON</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Strong winds damaged light structures in Brgy. Balintawak. Partial power outage reported; no injuries yet, monitoring ongoing.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Balintawak, Lipa City</span>
+                <span><span class="meta-label">Time</span> 12 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">MERALCO & BARANGAY RESPONSE TEAM ON CALL.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-005">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">AMBER ALERT</div>
+                  <div class="alert-type">IMPASSABLE ROADS</div>
+                </div>
+                <div class="alert-pill pill-critical">CRITICAL</div>
+              </div>
+              <div class="alert-body">
+                Waist-high flood blocking main road in Brgy. Marawoy. Multiple vehicles stranded, trapped passengers unable to exit due to strong current.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Marawoy, Lipa City</span>
+                <span><span class="meta-label">Time</span> 15 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">DISPATCH RESCUE BOATS & TRAFFIC ENFORCERS.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-006">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">MEDICAL EMERGENCY</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Social media report of diabetic senior with difficulty breathing, unable to reach hospital due to flooded streets in Poblacion.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. 7, Poblacion, Lipa City</span>
+                <span><span class="meta-label">Time</span> 20 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">COORDINATE AMBULANCE & FLOOD-CAPABLE VEHICLE.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-007">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">MINOR FLOODING</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Minor street flooding along Mataasnakahoy Road. Roads passable but slowing traffic; residents monitoring water level near creek.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Mataasnakahoy Road, Lipa City</span>
+                <span><span class="meta-label">Time</span> 28 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">FIELD TEAM TO VALIDATE ON-SITE CONDITIONS.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-008">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">AMBER ALERT</div>
+                  <div class="alert-type">TRAPPED RESIDENTS</div>
+                </div>
+                <div class="alert-pill pill-critical">CRITICAL</div>
+              </div>
+              <div class="alert-body">
+                Reports of a family trapped on second floor with rising floodwater in Brgy. Lodlod. Children present; access road heavily inundated.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Lodlod, Lipa City</span>
+                <span><span class="meta-label">Time</span> 34 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">PRIORITIZE HIGH-CLEARANCE RESCUE VEHICLE.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-009">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">POWER INTERRUPTION</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Multiple residents of Brgy. San Carlos report complete power outage after strong winds. No secondary incidents yet.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. San Carlos, Lipa City</span>
+                <span><span class="meta-label">Time</span> 41 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">COORDINATE WITH MERALCO • MONITOR FOLLOW-UP REPORTS.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-010">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">RIVER LEVEL RISING</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Online photos show Niyugan River level close to riverbanks. No overflow yet but residents are concerned and tagging LGU accounts.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Along Niyugan River, Lipa City</span>
+                <span><span class="meta-label">Time</span> 55 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">MONITOR VIA FIELD TEAM & PAGASA ADVISORIES.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- EXTRA INCIDENTS TO MAKE IT LOOK REALLY LIVE -->
+          <article class="alert-card" data-alert-id="AL-2025-011">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">EVACUATION CENTER STATUS</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Social media photos show Barangay Hall evacuation center nearing capacity, families arriving from lower-lying streets.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. 9, Poblacion, Lipa City</span>
+                <span><span class="meta-label">Time</span> 1 hr ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">COORDINATE WITH DSWD FOR ADDITIONAL SUPPLIES.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-012">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">SCHOOL FLOODING</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Posts report rising water at a public elementary school; classrooms on first floor already ankle-deep, parents requesting assistance.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. San Sebastian, Lipa City</span>
+                <span><span class="meta-label">Time</span> 1 hr 10 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">VERIFY WITH DEPED COORDINATOR • PREPARE BUS EVAC.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-013">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">BRIDGE WATER LEVEL</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Residents posting videos of fast water flow under a small bridge, water nearing edge but still below warning line.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Tambo, Lipa City</span>
+                <span><span class="meta-label">Time</span> 1 hr 20 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">FIELD TEAM TO VALIDATE STRUCTURAL SAFETY.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-014">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">AMBER ALERT</div>
+                  <div class="alert-type">HOUSE PARTIALLY SUBMERGED</div>
+                </div>
+                <div class="alert-pill pill-critical">CRITICAL</div>
+              </div>
+              <div class="alert-body">
+                Viral post shows a one-story home with water at window level, elderly resident seen waving for help on rooftop.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Banay-Banay, Lipa City</span>
+                <span><span class="meta-label">Time</span> 1 hr 30 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">ADD TO PRIORITY RESCUE QUEUE • VALIDATE GPS.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-015">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">ROAD COLLAPSE RISK</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Netizens tag LGU on photos of cracked road shoulder near steep drop, vehicles still passing through narrowed lane.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Bulacnin, Lipa City</span>
+                <span><span class="meta-label">Time</span> 1 hr 42 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">ISSUE TEMPORARY CLOSURE ADVISORY IF CONFIRMED.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-016">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">RICE FIELD FLOODING</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Farmers posting images of partially submerged paddies; concern about extended flooding and crop damage.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Malarayat, Lipa City</span>
+                <span><span class="meta-label">Time</span> 1 hr 55 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">INFORM DA / AGRI OFFICE FOR DAMAGE ESTIMATE.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-017">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">HOSPITAL ACCESS ISSUE</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Reports that access road near private hospital is partially flooded, small vehicles having difficulty passing through.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Mataas na Lupa, Lipa City</span>
+                <span><span class="meta-label">Time</span> 2 hrs 5 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">DEPLOY TRAFFIC TEAM • COORDINATE ALTERNATE ROUTES.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-018">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">LOW-LYING STORES</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Convenience stores posting that water is entering front doorstep; some items being transferred to higher shelves.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Balintawak Highway Strip</span>
+                <span><span class="meta-label">Time</span> 2 hrs 15 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">MONITOR FOR ECONOMIC IMPACT / DAMAGE REPORTS.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-019">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">AMBER ALERT</div>
+                  <div class="alert-type">TRAPPED COMMUTERS</div>
+                </div>
+                <div class="alert-pill pill-critical">CRITICAL</div>
+              </div>
+              <div class="alert-body">
+                Several posts show commuters stranded inside jeepney surrounded by floodwaters; reports say children are on board.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Sico, Lipa City</span>
+                <span><span class="meta-label">Time</span> 2 hrs 20 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">TAG FOR URGENT BOAT RESCUE SUPPORT.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-020">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">TREE FALL HAZARD</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Residents tag city government about a large tree leaning dangerously toward residential roof after strong winds.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Antipolo del Norte, Lipa City</span>
+                <span><span class="meta-label">Time</span> 2 hrs 30 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">COORDINATE WITH CITY ENVIRONMENT / TREE CUTTING TEAM.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-021">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">LIGHTNING STRIKES REPORTED</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Netizens posting images of frequent lightning near agricultural areas; no damage yet but pets and livestock distressed.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Talisay, Lipa City</span>
+                <span><span class="meta-label">Time</span> 2 hrs 40 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">SHARE SAFETY TIPS ON OFFICIAL PAGE.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-022">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">MINOR LANDSLIDE</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Small landslide reported at roadside slope; traffic slowed but road still passable, debris on shoulder.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Brgy. Inosloban, Lipa City</span>
+                <span><span class="meta-label">Time</span> 2 hrs 55 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">ALERT DPWH / ENGINEERING TEAMS.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-023">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">MONITORING</div>
+                  <div class="alert-type">MINOR EARTH TREMOR</div>
+                </div>
+                <div class="alert-pill pill-moderate">MODERATE</div>
+              </div>
+              <div class="alert-body">
+                Quick posts from residents say they felt a light tremor; no visible damage, checking with PHIVOLCS updates.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> City-wide reports</span>
+                <span><span class="meta-label">Time</span> 3 hrs 5 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">VERIFY OFFICIAL BULLETIN BEFORE ESCALATION.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="alert-card" data-alert-id="AL-2025-024">
+            <div class="alert-inner">
+              <div class="alert-header">
+                <div>
+                  <div class="alert-title">HIGH PRIORITY</div>
+                  <div class="alert-type">AFTERSHOCK FEAR</div>
+                </div>
+                <div class="alert-pill pill-high">HIGH</div>
+              </div>
+              <div class="alert-body">
+                Residents posting about fear of aftershocks, some families staying outside their houses despite rain.
+              </div>
+              <div class="alert-meta">
+                <span><span class="meta-label">Location</span> Selected barangays, Lipa City</span>
+                <span><span class="meta-label">Time</span> 3 hrs 15 mins ago</span>
+              </div>
+              <div class="alert-footer">
+                <span class="hotline">ISSUE OFFICIAL GUIDANCE ON SAFETY AND SHELTER.</span>
+                <button class="btn-ghost">OK</button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- INCIDENT DETAIL PANEL -->
+        <section class="incident-detail" id="incident-detail">
+          <div class="incident-detail-header">
+            <div class="incident-code" id="detail-code">[AL-2025-001]</div>
+            <div class="incident-chip" id="detail-urgency">CRITICAL FLOOD</div>
+          </div>
+          <div class="incident-detail-grid">
+            <div>
+              <div class="incident-field-label">Location</div>
+              <div class="incident-field-value" id="detail-location">Brgy. Sabang, Lipa City</div>
+            </div>
+            <div>
+              <div class="incident-field-label">Humanitarian category</div>
+              <div class="incident-field-value" id="detail-category">Rescue / Evacuation</div>
+            </div>
+            <div>
+              <div class="incident-field-label">Source</div>
+              <div class="incident-field-value" id="detail-source">Facebook public post</div>
+            </div>
+            <div>
+              <div class="incident-field-label">Model confidence</div>
+              <div class="incident-field-value" id="detail-confidence">0.91</div>
+            </div>
+          </div>
+          <div class="incident-actions">
+            <button class="incident-btn primary">Mark as validated</button>
+            <button class="incident-btn">Assign to team</button>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Alertify v0.9 • Academic prototype for LGU decision support.</span>
+      <span>Prototype only — do not use as sole basis for life-critical decisions.</span>
+    </footer>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <!-- Leaflet MarkerCluster -->
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <script src="assets/js/clock.js"></script>
+  <script src="assets/js/dashboard_live.js"></script>
+
+</body>
+</html>
