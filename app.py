@@ -3,6 +3,69 @@ import os, json, time, sqlite3
 from queue import Queue
 from datetime import datetime
 
+
+
+
+
+
+
+
+
+
+
+
+import os
+import sqlite3
+from flask import Flask, request, jsonify, Response, send_from_directory, session
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+PUBLIC_DIR = os.path.join(BASE_DIR, "public")
+
+# ✅ safest DB location on Render
+DB_PATH = os.path.join("/tmp", "alertify.db")
+
+app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path="")
+app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
+
+def db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("""
+      CREATE TABLE IF NOT EXISTS posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        author TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_disaster INTEGER NOT NULL,
+        disaster_type TEXT,
+        urgency TEXT,
+        confidence INTEGER,
+        location_text TEXT,
+        lat REAL,
+        lon REAL
+      )
+    """)
+    conn.commit()
+    conn.close()
+
+# ✅ IMPORTANT: run on import so Gunicorn also creates the DB
+init_db()
+
+
+
+
+
+
+
+
+
+
+
 APP_DIR = os.path.abspath(os.path.dirname(__file__))
 PUBLIC_DIR = os.path.join(APP_DIR, "public")
 DB_PATH = os.path.join(APP_DIR, "alertify.db")
@@ -68,6 +131,8 @@ def stream():
             except: pass
 
     return Response(gen(), mimetype="text/event-stream")
+
+
 
 # ---------- SIMPLE CLASSIFIER (baseline, typo tolerant enough for demo) ----------
 BARANGAY_COORDS = {
