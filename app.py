@@ -1092,14 +1092,26 @@ def list_posts():
     role = session.get("role", "anon")
     limit = min(max(int(request.args.get("limit", "300")), 1), 500)
 
+    only_disaster = request.args.get("only_disaster", "0").strip() == "1"
+
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM posts ORDER BY id DESC LIMIT ?", (limit,))
+
+    if only_disaster:
+        cur.execute(
+            "SELECT * FROM posts WHERE is_disaster = 1 ORDER BY id DESC LIMIT ?",
+            (limit,),
+        )
+    else:
+        cur.execute("SELECT * FROM posts ORDER BY id DESC LIMIT ?", (limit,))
+
     rows = [dict(r) for r in cur.fetchall()]
 
+    # admin can see full rows (including classification fields)
     if role == "admin":
         return jsonify({"ok": True, "posts": rows})
 
+    # non-admin gets safe fields only
     safe_rows = [
         {"id": r["id"], "author": r["author"], "content": r["content"], "created_at": r["created_at"]}
         for r in rows

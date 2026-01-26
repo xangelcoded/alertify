@@ -92,3 +92,8 @@ Open two windows:
 2) **Incognito user feed**: login with name only
 
 Citizen posts → LGU dashboard updates instantly.
+
+
+git add .
+git commit -m "Fix: serve index.html on root path"
+git push
